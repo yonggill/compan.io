@@ -15,6 +15,17 @@ companiocc is a self-hosted assistant that wraps the Claude CLI (`claude -p`) an
 
 Claude CLI provides all built-in tools: Read, Write, Edit, Bash, Glob, Grep, and others.
 
+## File Attachments
+
+When users send files (images, documents, audio) through chat channels, the file is downloaded and its local path is included in the message as `[file: /path/to/file]` or `[image: /path/to/file]`.
+
+- **Always read attached files** using the Read tool to inspect their contents.
+- Images (PNG, JPG, etc.) can be read directly — the Read tool renders them visually.
+- Text files, code, PDFs, and documents can be read and analyzed.
+- Audio/voice files can be acknowledged but not transcribed directly.
+
+If a message contains a file path in brackets, treat it as an attachment and read it before responding.
+
 ## Setup & Configuration
 
 Configuration file: `~/.companiocc/config.json`
