@@ -36,7 +36,8 @@ class CronPayload:
     # Deliver response to channel
     deliver: bool = False
     channel: str | None = None  # e.g. "telegram"
-    to: str | None = None  # e.g. phone number
+    to: str | None = None  # e.g. phone number or chat_id
+    metadata: dict[str, Any] = field(default_factory=dict)  # e.g. message_thread_id for groups
 
 
 @dataclass
@@ -168,6 +169,7 @@ class CronService:
                                 deliver=j["payload"].get("deliver", False),
                                 channel=j["payload"].get("channel"),
                                 to=j["payload"].get("to"),
+                                metadata=j["payload"].get("metadata", {}),
                             ),
                             state=CronJobState(
                                 next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -216,6 +218,7 @@ class CronService:
                         "deliver": j.payload.deliver,
                         "channel": j.payload.channel,
                         "to": j.payload.to,
+                        "metadata": j.payload.metadata,
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,
@@ -271,42 +274,55 @@ class CronService:
         return min(times) if times else None
 
     def _arm_timer(self) -> None:
-        """Schedule the next timer tick."""
+        """Schedule the next timer tick with periodic file-change polling."""
         if self._timer_task:
             self._timer_task.cancel()
 
-        next_wake = self._get_next_wake_ms()
-        if not next_wake or not self._running:
+        if not self._running:
             return
 
-        delay_ms = max(0, next_wake - _now_ms())
-        delay_s = delay_ms / 1000
+        poll_interval_s = 5.0  # check for external file changes every 5s
 
         async def tick():
-            await asyncio.sleep(delay_s)
-            if self._running:
-                await self._on_timer()
+            while self._running:
+                next_wake = self._get_next_wake_ms()
+                if next_wake:
+                    delay_s = max(0, (next_wake - _now_ms()) / 1000)
+                    wait_s = min(delay_s, poll_interval_s)
+                else:
+                    wait_s = poll_interval_s
+
+                await asyncio.sleep(wait_s)
+                if not self._running:
+                    break
+
+                # Check for external file changes
+                old_store = self._store
+                self._load_store()
+                if self._store is not old_store:
+                    # File was modified externally — recompute schedules
+                    self._recompute_next_runs()
+                    self._save_store()
+
+                # Execute due jobs
+                await self._on_timer_tick()
 
         self._timer_task = asyncio.create_task(tick())
 
-    async def _on_timer(self) -> None:
-        """Handle timer tick - run due jobs."""
-        self._load_store()
+    async def _on_timer_tick(self) -> None:
+        """Execute due jobs without rearming (loop handles scheduling)."""
         if not self._store:
             return
-
         now = _now_ms()
         due_jobs = [
             j
             for j in self._store.jobs
             if j.enabled and j.state.next_run_at_ms and now >= j.state.next_run_at_ms
         ]
-
         for job in due_jobs:
             await self._execute_job(job)
-
-        self._save_store()
-        self._arm_timer()
+        if due_jobs:
+            self._save_store()
 
     async def _execute_job(self, job: CronJob) -> None:
         """Execute a single job."""
@@ -357,6 +373,7 @@ class CronService:
         channel: str | None = None,
         to: str | None = None,
         delete_after_run: bool = False,
+        metadata: dict[str, Any] | None = None,
     ) -> CronJob:
         """Add a new job."""
         store = self._load_store()
@@ -374,6 +391,7 @@ class CronService:
                 deliver=deliver,
                 channel=channel,
                 to=to,
+                metadata=metadata or {},
             ),
             state=CronJobState(next_run_at_ms=_compute_next_run(schedule, now)),
             created_at_ms=now,

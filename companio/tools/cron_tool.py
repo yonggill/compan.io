@@ -12,12 +12,14 @@ class CronManager:
         self._cron = cron_service
         self._channel = ""
         self._chat_id = ""
+        self._metadata: dict[str, object] = {}
         self._in_cron_context: ContextVar[bool] = ContextVar("cron_in_context", default=False)
 
-    def set_context(self, channel: str, chat_id: str) -> None:
+    def set_context(self, channel: str, chat_id: str, metadata: dict | None = None) -> None:
         """Set the current session context for delivery."""
         self._channel = channel
         self._chat_id = chat_id
+        self._metadata = metadata or {}
 
     def set_cron_context(self, active: bool):
         """Mark whether the tool is executing inside a cron job callback."""
@@ -86,6 +88,11 @@ class CronManager:
         else:
             return "Error: either every_seconds, cron_expr, or at is required"
 
+        # Preserve group chat context (e.g. message_thread_id) for delivery
+        delivery_metadata = {}
+        if self._metadata.get("message_thread_id") is not None:
+            delivery_metadata["message_thread_id"] = self._metadata["message_thread_id"]
+
         job = self._cron.add_job(
             name=message[:30],
             schedule=schedule,
@@ -94,6 +101,7 @@ class CronManager:
             channel=self._channel,
             to=self._chat_id,
             delete_after_run=delete_after,
+            metadata=delivery_metadata,
         )
         return f"Created job '{job.name}' (id: {job.id})"
 

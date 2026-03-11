@@ -145,6 +145,13 @@ def sync_workspace_templates(workspace: Path, silent: bool = False) -> list[str]
     _write(tpl / "memory" / "MEMORY.md", workspace / "memory" / "MEMORY.md")
     _write(None, workspace / "memory" / "HISTORY.md")
     (workspace / "skills").mkdir(exist_ok=True)
+    skills_tpl = tpl / "skills"
+    if skills_tpl.is_dir():
+        for skill_dir in skills_tpl.iterdir():
+            if skill_dir.is_dir():
+                for skill_file in skill_dir.iterdir():
+                    if skill_file.name.endswith(".md"):
+                        _write(skill_file, workspace / "skills" / skill_dir.name / skill_file.name)
 
     if added and not silent:
         from rich.console import Console
