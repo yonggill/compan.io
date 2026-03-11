@@ -1,7 +1,7 @@
 {
   "agents": {
     "defaults": {
-      "workspace": "~/",
+      "workspace": "~/.companiocc/workspace",
       "memoryWindow": 200
     }
   },

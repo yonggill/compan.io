@@ -32,9 +32,9 @@ class TestConfigDefaults:
         config = Config()
         assert config.model_config.get("env_prefix") == "COMPANIOCC_"
 
-    def test_workspace_path_default(self):
+    def test_workspace_path_uses_companiocc(self):
         config = Config()
-        assert config.agents.defaults.workspace == "~/"
+        assert ".companiocc" in config.agents.defaults.workspace
 
     def test_gateway_defaults(self):
         config = Config()
