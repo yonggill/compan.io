@@ -50,6 +50,8 @@ class AgentLoop:
         self._consolidation_tasks: set[asyncio.Task] = set()
         # Claude CLI session IDs per session key (for --resume)
         self._claude_session_ids: dict[str, str] = {}
+        # Track cumulative cost per session key for per-turn diff
+        self._claude_session_costs: dict[str, float] = {}
 
     async def run(self) -> None:
         """Main loop - consume messages from bus."""
@@ -161,8 +163,8 @@ class AgentLoop:
                 message=full_message, resume_session_id=claude_sid,
             )
         else:
-            # First call — send system prompt + history
-            system_prompt = self.context.build_system_prompt()
+            # First call — write CLAUDE.md and inject history if available
+            self.context.write_claude_md(self.claude.project_dir)
             runtime_ctx = ContextBuilder._build_runtime_context(msg.channel, msg.chat_id)
             history_text = ContextBuilder.format_history(session.messages[-self.memory_window:])
 
@@ -174,9 +176,28 @@ class AgentLoop:
             new_session_id = str(uuid.uuid4())
             response = await self.claude.run(
                 message=full_message,
-                system_prompt=system_prompt,
                 session_id=new_session_id,
             )
+
+        # Log Claude CLI response stats
+        is_resume = claude_sid is not None
+        prev_cost = self._claude_session_costs.get(key, 0.0)
+        if response.total_cost_usd >= prev_cost:
+            # Normal: cumulative total increased
+            turn_cost = response.total_cost_usd - prev_cost
+        else:
+            # Session was compacted/reset by CLI — treat total as this turn's cost
+            turn_cost = response.total_cost_usd
+        self._claude_session_costs[key] = response.total_cost_usd
+        logger.info(
+            "Claude CLI response: session={} resume={} turn_cost=${:.4f} total_cost=${:.4f} duration={}ms turns={}",
+            response.session_id or "n/a",
+            is_resume,
+            turn_cost,
+            response.total_cost_usd,
+            response.duration_ms,
+            response.num_turns,
+        )
 
         # Store Claude CLI session ID from response for future --resume
         if response.session_id and not response.is_error:
@@ -189,8 +210,13 @@ class AgentLoop:
             logger.error("Claude CLI error: {}", result_text[:200])
             result_text = result_text or "Sorry, I encountered an error."
 
-        # Save turn
-        self._save_turn(session, msg.content, result_text)
+        # Save turn with cost data
+        self._save_turn(
+            session, msg.content, result_text,
+            turn_cost_usd=turn_cost,
+            total_cost_usd=response.total_cost_usd,
+            duration_ms=response.duration_ms,
+        )
         await self._session_manager.save(session)
 
         # If message_sender already sent in this turn, don't duplicate
@@ -221,6 +247,7 @@ class AgentLoop:
         await self._session_manager.clear(session.session_id)
         # Clear Claude CLI session so next call creates a fresh one
         self._claude_session_ids.pop(msg.session_key, None)
+        self._claude_session_costs.pop(msg.session_key, None)
         return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content="New session started.")
 
     def _maybe_consolidate(self, session: Session) -> None:
@@ -241,12 +268,20 @@ class AgentLoop:
             task = asyncio.create_task(_do())
             self._consolidation_tasks.add(task)
 
-    def _save_turn(self, session: Session, user_content: str, assistant_content: str) -> None:
-        """Save user + assistant messages to session."""
+    def _save_turn(
+        self, session: Session, user_content: str, assistant_content: str,
+        *, turn_cost_usd: float = 0.0, total_cost_usd: float = 0.0, duration_ms: int = 0,
+    ) -> None:
+        """Save user + assistant messages to session with cost metadata."""
         now = datetime.now().isoformat()
         session.messages.append({"role": "user", "content": user_content, "timestamp": now})
         if assistant_content:
-            session.messages.append({"role": "assistant", "content": assistant_content, "timestamp": now})
+            session.messages.append({
+                "role": "assistant", "content": assistant_content, "timestamp": now,
+                "turn_cost_usd": turn_cost_usd,
+                "total_cost_usd": total_cost_usd,
+                "duration_ms": duration_ms,
+            })
 
     async def _consolidate_memory(self, session: Session, archive_all: bool = False) -> bool:
         return await MemoryStore(self.workspace).consolidate(

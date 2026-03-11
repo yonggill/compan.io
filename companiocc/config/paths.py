@@ -46,6 +46,16 @@ def get_cli_history_path() -> Path:
 
 
 
+def get_claude_project_dir() -> Path:
+    """Return the Claude CLI project directory for companiocc.
+
+    This directory holds CLAUDE.md (system prompt) and is used as cwd
+    when spawning Claude CLI, keeping sessions isolated from the user's
+    own Claude Code usage.
+    """
+    return ensure_dir(Path.home() / ".companiocc" / "project")
+
+
 def get_legacy_sessions_dir() -> Path:
     """Return the legacy global session directory used for migration fallback."""
     return Path.home() / ".companiocc" / "sessions"

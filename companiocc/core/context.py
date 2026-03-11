@@ -32,6 +32,16 @@ class ContextBuilder:
 
         return "\n\n---\n\n".join(parts)
 
+    def write_claude_md(self, project_dir: Path) -> None:
+        """Write CLAUDE.md to the Claude CLI project directory.
+
+        This file is read automatically by Claude CLI at session start,
+        replacing the need for --append-system-prompt.
+        """
+        content = self.build_system_prompt()
+        claude_md = project_dir / "CLAUDE.md"
+        claude_md.write_text(content, encoding="utf-8")
+
     def _get_identity(self) -> str:
         """Get the core identity section."""
         workspace_path = str(self.workspace.expanduser().resolve())

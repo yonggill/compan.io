@@ -9,6 +9,7 @@ import shutil
 import signal
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from loguru import logger
 
@@ -118,7 +119,7 @@ class ClaudeResponse:
         return cls(
             result=data.get("result", ""),
             session_id=data.get("session_id"),
-            total_cost_usd=data.get("cost_usd", 0.0),
+            total_cost_usd=data.get("total_cost_usd", 0.0),
             duration_ms=data.get("duration_ms", 0),
             num_turns=data.get("num_turns", 0),
             is_error=data.get("is_error", False),
@@ -132,12 +133,14 @@ class ClaudeCLI:
     def __init__(
         self,
         *,
+        project_dir: Path,
         max_turns: int = 50,
         timeout: int = 300,
         max_concurrent: int = 5,
         model: str | None = None,
         allowed_tools: list[str] | None = None,
     ) -> None:
+        self.project_dir = project_dir
         self.max_turns = max_turns
         self.timeout = timeout
         self.model = model
@@ -146,20 +149,22 @@ class ClaudeCLI:
 
     def _build_cmd(
         self,
-        system_prompt: str | None,
         *,
         session_id: str | None = None,
         resume_session_id: str | None = None,
     ) -> list[str]:
         """Build the claude CLI command list.
 
+        System prompt is read from CLAUDE.md in the project directory (cwd),
+        not passed via CLI args.
+
         Args:
-            system_prompt: System prompt (only sent on first call, not on resume).
             session_id: Create a new session with this UUID (first call).
             resume_session_id: Resume an existing session by ID (subsequent calls).
         """
         cmd = ["claude", "-p", "--output-format", "json"]
         cmd.extend(["--max-turns", str(self.max_turns)])
+        cmd.extend(["--add-dir", str(Path.home())])
 
         if self.model:
             cmd.extend(["--model", self.model])
@@ -168,9 +173,6 @@ class ClaudeCLI:
             cmd.extend(["--resume", resume_session_id])
         elif session_id:
             cmd.extend(["--session-id", session_id])
-
-        if system_prompt:
-            cmd.extend(["--append-system-prompt", system_prompt])
 
         # Always skip permissions — companiocc runs as an autonomous agent
         cmd.append("--dangerously-skip-permissions")
@@ -194,6 +196,7 @@ class ClaudeCLI:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=_filtered_env(),
+            cwd=str(self.project_dir),
             start_new_session=True,
         )
         try:
@@ -239,27 +242,20 @@ class ClaudeCLI:
         self,
         message: str,
         *,
-        system_prompt: str | None = None,
         session_id: str | None = None,
         resume_session_id: str | None = None,
     ) -> ClaudeResponse:
         """Run a message through the Claude CLI and return parsed response.
 
+        System prompt is read from CLAUDE.md in the project directory.
+
         Args:
             message: User message (passed via stdin).
-            system_prompt: System prompt (only on first call).
             session_id: Create session with this UUID (first call).
             resume_session_id: Resume existing session (subsequent calls).
         """
-        cmd = self._build_cmd(
-            system_prompt, session_id=session_id, resume_session_id=resume_session_id,
-        )
-        # Mask system prompt in log output (can be very large + sensitive)
-        safe_cmd = [
-            f"[system-prompt:{len(c)}B]" if c == system_prompt and system_prompt else c
-            for c in cmd
-        ]
-        logger.debug("Running Claude CLI: {}", " ".join(safe_cmd))
+        cmd = self._build_cmd(session_id=session_id, resume_session_id=resume_session_id)
+        logger.debug("Running Claude CLI: {}", " ".join(cmd))
 
         async with self._semaphore:
             try:

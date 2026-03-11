@@ -18,7 +18,7 @@ class TestClaudeResponseFromJson:
             {
                 "result": "Hello, world!",
                 "session_id": "sess-123",
-                "cost_usd": 0.05,
+                "total_cost_usd": 0.05,
                 "duration_ms": 1234,
                 "num_turns": 3,
                 "is_error": False,
@@ -39,7 +39,7 @@ class TestClaudeResponseFromJson:
             {
                 "result": "Max turns exceeded",
                 "session_id": "sess-456",
-                "cost_usd": 0.10,
+                "total_cost_usd": 0.10,
                 "duration_ms": 5000,
                 "num_turns": 50,
                 "is_error": True,
@@ -121,66 +121,72 @@ class TestFilteredEnv:
 
 
 class TestBuildCmd:
-    def test_basic(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt=None)
+    def _make_cli(self, tmp_path=None, **kwargs):
+        from pathlib import Path
+        project_dir = tmp_path or Path("/tmp/test-project")
+        return ClaudeCLI(project_dir=project_dir, **kwargs)
+
+    def test_basic(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd()
         assert cmd[:4] == ["claude", "-p", "--output-format", "json"]
         assert "--max-turns" in cmd
         idx = cmd.index("--max-turns")
         assert cmd[idx + 1] == "50"
 
-    def test_with_model(self):
-        cli = ClaudeCLI(model="opus-4")
-        cmd = cli._build_cmd(system_prompt=None)
+    def test_with_model(self, tmp_path):
+        cli = self._make_cli(tmp_path, model="opus-4")
+        cmd = cli._build_cmd()
         assert "--model" in cmd
         idx = cmd.index("--model")
         assert cmd[idx + 1] == "opus-4"
 
-    def test_with_system_prompt(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt="Be helpful")
-        assert "--append-system-prompt" in cmd
-        idx = cmd.index("--append-system-prompt")
-        assert cmd[idx + 1] == "Be helpful"
-
-    def test_always_skips_permissions(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt=None)
+    def test_always_skips_permissions(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd()
         assert "--dangerously-skip-permissions" in cmd
 
-    def test_allowed_tools(self):
-        cli = ClaudeCLI(allowed_tools=["Read", "Edit", "Bash"])
-        cmd = cli._build_cmd(system_prompt=None)
+    def test_allowed_tools(self, tmp_path):
+        cli = self._make_cli(tmp_path, allowed_tools=["Read", "Edit", "Bash"])
+        cmd = cli._build_cmd()
         assert "--allowedTools" in cmd
         idx = cmd.index("--allowedTools")
         assert cmd[idx + 1] == "Read,Edit,Bash"
 
-    def test_no_allowed_tools_no_flag(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt=None)
+    def test_no_allowed_tools_no_flag(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd()
         assert "--allowedTools" not in cmd
 
-    def test_session_id(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt=None, session_id="abc-123")
+    def test_session_id(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd(session_id="abc-123")
         assert "--session-id" in cmd
         idx = cmd.index("--session-id")
         assert cmd[idx + 1] == "abc-123"
         assert "--resume" not in cmd
 
-    def test_resume_session(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt=None, resume_session_id="sess-456")
+    def test_resume_session(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd(resume_session_id="sess-456")
         assert "--resume" in cmd
         idx = cmd.index("--resume")
         assert cmd[idx + 1] == "sess-456"
         assert "--session-id" not in cmd
 
-    def test_resume_takes_precedence_over_session_id(self):
-        cli = ClaudeCLI()
-        cmd = cli._build_cmd(system_prompt=None, session_id="new", resume_session_id="old")
+    def test_resume_takes_precedence_over_session_id(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd(session_id="new", resume_session_id="old")
         assert "--resume" in cmd
         assert "--session-id" not in cmd
+
+    def test_add_dir_home(self, tmp_path):
+        cli = self._make_cli(tmp_path)
+        cmd = cli._build_cmd()
+        assert "--add-dir" in cmd
+        idx = cmd.index("--add-dir")
+        from pathlib import Path
+        assert cmd[idx + 1] == str(Path.home())
 
 
 # ── ClaudeCLI.run ─────────────────────────────────────────────────────
@@ -188,12 +194,12 @@ class TestBuildCmd:
 
 class TestClaudeCLIRun:
     @pytest.mark.asyncio
-    async def test_success(self, monkeypatch):
+    async def test_success(self, monkeypatch, tmp_path):
         response_json = json.dumps(
             {
                 "result": "Done!",
                 "session_id": "sess-1",
-                "cost_usd": 0.01,
+                "total_cost_usd": 0.01,
                 "duration_ms": 500,
                 "num_turns": 1,
                 "is_error": False,
@@ -204,58 +210,58 @@ class TestClaudeCLIRun:
         async def fake_spawn(cmd, message):
             return (0, response_json, "")
 
-        cli = ClaudeCLI()
+        cli = ClaudeCLI(project_dir=tmp_path)
         monkeypatch.setattr(cli, "_spawn", fake_spawn)
         resp = await cli.run("Hello")
         assert resp.result == "Done!"
         assert resp.is_error is False
 
     @pytest.mark.asyncio
-    async def test_process_error_nonzero_exit(self, monkeypatch):
+    async def test_process_error_nonzero_exit(self, monkeypatch, tmp_path):
         async def fake_spawn(cmd, message):
             return (1, "", "something went wrong")
 
-        cli = ClaudeCLI()
+        cli = ClaudeCLI(project_dir=tmp_path)
         monkeypatch.setattr(cli, "_spawn", fake_spawn)
         resp = await cli.run("Hello")
         assert resp.is_error is True
         assert "something went wrong" in resp.result
 
     @pytest.mark.asyncio
-    async def test_timeout(self, monkeypatch):
+    async def test_timeout(self, monkeypatch, tmp_path):
         async def fake_spawn(cmd, message):
             raise asyncio.TimeoutError()
 
-        cli = ClaudeCLI()
+        cli = ClaudeCLI(project_dir=tmp_path)
         monkeypatch.setattr(cli, "_spawn", fake_spawn)
         resp = await cli.run("Hello")
         assert resp.is_error is True
         assert "timeout" in resp.result.lower()
 
     @pytest.mark.asyncio
-    async def test_cancelled_error(self, monkeypatch):
+    async def test_cancelled_error(self, monkeypatch, tmp_path):
         async def fake_spawn(cmd, message):
             raise asyncio.CancelledError()
 
-        cli = ClaudeCLI()
+        cli = ClaudeCLI(project_dir=tmp_path)
         monkeypatch.setattr(cli, "_spawn", fake_spawn)
         resp = await cli.run("Hello")
         assert resp.is_error is True
         assert "cancel" in resp.result.lower()
 
     @pytest.mark.asyncio
-    async def test_empty_stdout_exit_zero(self, monkeypatch):
+    async def test_empty_stdout_exit_zero(self, monkeypatch, tmp_path):
         async def fake_spawn(cmd, message):
             return (0, "", "")
 
-        cli = ClaudeCLI()
+        cli = ClaudeCLI(project_dir=tmp_path)
         monkeypatch.setattr(cli, "_spawn", fake_spawn)
         resp = await cli.run("Hello")
         assert resp.is_error is True
         assert "empty" in resp.result.lower()
 
     @pytest.mark.asyncio
-    async def test_semaphore_limits_concurrency(self, monkeypatch):
+    async def test_semaphore_limits_concurrency(self, monkeypatch, tmp_path):
         call_count = 0
         max_concurrent = 0
 
@@ -271,7 +277,7 @@ class TestClaudeCLIRun:
                 "",
             )
 
-        cli = ClaudeCLI(max_concurrent=2)
+        cli = ClaudeCLI(project_dir=tmp_path, max_concurrent=2)
         monkeypatch.setattr(cli, "_spawn", fake_spawn)
         tasks = [cli.run("msg") for _ in range(5)]
         await asyncio.gather(*tasks)

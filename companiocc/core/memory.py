@@ -79,7 +79,9 @@ class MemoryStore:
             )
 
         current_memory = self.read_long_term()
-        prompt = f"""Process this conversation and respond with ONLY a JSON object (no markdown, no explanation):
+        prompt = f"""You are a memory consolidation agent. Respond with ONLY valid JSON containing history_entry and memory_update fields. No markdown fences, no explanation.
+
+Process this conversation and respond with ONLY a JSON object (no markdown, no explanation):
 
 {{"history_entry": "A paragraph (2-5 sentences) summarizing key events. Start with [YYYY-MM-DD HH:MM]. Include detail useful for grep search.",
  "memory_update": "Full updated long-term memory as markdown. Include all existing facts plus new ones."}}
@@ -91,10 +93,7 @@ class MemoryStore:
 {chr(10).join(lines)}"""
 
         try:
-            response = await claude.run(
-                message=prompt,
-                system_prompt="You are a memory consolidation agent. Respond with ONLY valid JSON containing history_entry and memory_update fields. No markdown fences, no explanation.",
-            )
+            response = await claude.run(message=prompt)
             if response.is_error:
                 logger.warning("Memory consolidation: Claude CLI error: {}", response.result)
                 return False

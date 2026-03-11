@@ -28,6 +28,7 @@ class SessionManager:
     CREATE TABLE IF NOT EXISTS sessions (
         session_id TEXT PRIMARY KEY,
         last_consolidated INTEGER DEFAULT 0,
+        total_cost_usd REAL DEFAULT 0.0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -39,11 +40,23 @@ class SessionManager:
         tool_calls TEXT,
         tool_call_id TEXT,
         name TEXT,
+        turn_cost_usd REAL,
+        total_cost_usd REAL,
+        duration_ms INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_messages_session
         ON messages(session_id);
     """
+
+    _MIGRATIONS = [
+        # Migration 1: Add cost columns to messages table
+        "ALTER TABLE messages ADD COLUMN turn_cost_usd REAL",
+        "ALTER TABLE messages ADD COLUMN total_cost_usd REAL",
+        "ALTER TABLE messages ADD COLUMN duration_ms INTEGER",
+        # Migration 2: Add total_cost_usd to sessions table
+        "ALTER TABLE sessions ADD COLUMN total_cost_usd REAL DEFAULT 0.0",
+    ]
 
     def __init__(self, sessions_dir: Path):
         self._db_path = ensure_dir(sessions_dir) / "companiocc.db"
@@ -54,7 +67,17 @@ class SessionManager:
         self._db = await aiosqlite.connect(str(self._db_path))
         await self._db.executescript(self._SCHEMA)
         await self._db.execute("PRAGMA journal_mode=WAL")
+        await self._apply_migrations()
         await self._db.commit()
+
+    async def _apply_migrations(self) -> None:
+        """Apply schema migrations safely (ignores already-applied ALTERs)."""
+        assert self._db is not None
+        for sql in self._MIGRATIONS:
+            try:
+                await self._db.execute(sql)
+            except Exception:
+                pass  # Column already exists
 
     async def close(self) -> None:
         if self._db:
@@ -118,8 +141,10 @@ class SessionManager:
         new_messages = session.messages[db_count:]
         for msg in new_messages:
             await self._db.execute(
-                "INSERT INTO messages (session_id, role, content, tool_calls, tool_call_id, name) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO messages "
+                "(session_id, role, content, tool_calls, tool_call_id, name, "
+                " turn_cost_usd, total_cost_usd, duration_ms) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     session.session_id,
                     msg.get("role"),
@@ -127,13 +152,20 @@ class SessionManager:
                     json.dumps(msg["tool_calls"]) if "tool_calls" in msg else None,
                     msg.get("tool_call_id"),
                     msg.get("name"),
+                    msg.get("turn_cost_usd"),
+                    msg.get("total_cost_usd"),
+                    msg.get("duration_ms"),
                 ),
             )
 
+        # Update session metadata including cumulative cost
+        total_cost = session.messages[-1].get("total_cost_usd") if session.messages else None
         await self._db.execute(
-            "UPDATE sessions SET last_consolidated = ?, updated_at = CURRENT_TIMESTAMP "
+            "UPDATE sessions SET last_consolidated = ?, "
+            "total_cost_usd = COALESCE(?, total_cost_usd), "
+            "updated_at = CURRENT_TIMESTAMP "
             "WHERE session_id = ?",
-            (session.last_consolidated, session.session_id),
+            (session.last_consolidated, total_cost, session.session_id),
         )
         await self._db.commit()
 

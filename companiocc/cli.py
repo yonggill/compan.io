@@ -369,12 +369,14 @@ def gateway(
     sync_workspace_templates(config.workspace_path)
     bus = MessageBus()
 
+    from companiocc.config.paths import get_claude_project_dir
+
     claude = ClaudeCLI(
+        project_dir=get_claude_project_dir(),
         max_turns=config.claude.max_turns,
         timeout=config.claude.timeout,
         max_concurrent=config.claude.max_concurrent,
         model=config.claude.model,
-
         allowed_tools=config.claude.allowed_tools,
     )
 
@@ -529,12 +531,14 @@ def agent(
 
     bus = MessageBus()
 
+    from companiocc.config.paths import get_claude_project_dir
+
     claude = ClaudeCLI(
+        project_dir=get_claude_project_dir(),
         max_turns=config.claude.max_turns,
         timeout=config.claude.timeout,
         max_concurrent=config.claude.max_concurrent,
         model=config.claude.model,
-
         allowed_tools=config.claude.allowed_tools,
     )
 
