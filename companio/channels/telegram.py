@@ -564,26 +564,8 @@ class TelegramChannel(BaseChannel):
 
                 media_paths.append(str(file_path))
 
-                # Handle voice transcription
-                if media_type == "voice" or media_type == "audio":
-                    if self.groq_api_key:
-                        try:
-                            from companio.providers.transcription import GroqTranscriptionProvider
-
-                            transcriber = GroqTranscriptionProvider(api_key=self.groq_api_key)
-                            transcription = await transcriber.transcribe(file_path)
-                            if transcription:
-                                logger.info("Transcribed {}: {}...", media_type, transcription[:50])
-                                content_parts.append(f"[transcription: {transcription}]")
-                            else:
-                                content_parts.append(f"[{media_type}: {file_path}]")
-                        except ImportError:
-                            logger.debug("Transcription provider not available")
-                            content_parts.append(f"[{media_type}: {file_path}]")
-                    else:
-                        content_parts.append(f"[{media_type}: {file_path}]")
-                else:
-                    content_parts.append(f"[{media_type}: {file_path}]")
+                # Handle voice/audio and other media
+                content_parts.append(f"[{media_type}: {file_path}]")
 
                 logger.debug("Downloaded {} to {}", media_type, file_path)
             except Exception as e:
