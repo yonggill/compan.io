@@ -175,6 +175,8 @@ class TelegramChannel(BaseChannel):
         self.config: TelegramConfig = config
         self.groq_api_key = groq_api_key
         self._app: Application | None = None
+        self._bot_id: int | None = None
+        self._bot_username: str | None = None
         self._chat_ids: dict[str, int] = {}  # Map sender_id to chat_id for replies
         self._typing_tasks: dict[str, asyncio.Task] = {}  # chat_id -> typing loop task
         self._media_group_buffers: dict[str, dict] = {}
@@ -251,6 +253,8 @@ class TelegramChannel(BaseChannel):
 
         # Get bot info and register command menu
         bot_info = await self._app.bot.get_me()
+        self._bot_id = bot_info.id
+        self._bot_username = bot_info.username
         logger.info("Telegram bot @{} connected", bot_info.username)
 
         try:
@@ -461,6 +465,18 @@ class TelegramChannel(BaseChannel):
         sid = str(user.id)
         return f"{sid}|{user.username}" if user.username else sid
 
+    def _is_bot_addressed(self, message) -> bool:
+        """Check if the bot is mentioned or replied to in a group message."""
+        # Reply to bot's message
+        if message.reply_to_message and message.reply_to_message.from_user:
+            if message.reply_to_message.from_user.id == self._bot_id:
+                return True
+        # @mention in text
+        text = message.text or message.caption or ""
+        if self._bot_username and f"@{self._bot_username}" in text:
+            return True
+        return False
+
     @staticmethod
     def _derive_topic_session_key(message) -> str | None:
         """Derive topic-scoped session key for non-private Telegram chats."""
@@ -518,6 +534,10 @@ class TelegramChannel(BaseChannel):
         sender_id = self._sender_id(user)
         self._remember_thread_context(message)
 
+        # In group chats, only respond when bot is mentioned or replied to
+        if message.chat.type != "private" and not self._is_bot_addressed(message):
+            return
+
         # Store chat_id for replies
         self._chat_ids[sender_id] = chat_id
 
@@ -525,11 +545,14 @@ class TelegramChannel(BaseChannel):
         content_parts = []
         media_paths = []
 
-        # Text content
+        # Text content (strip bot mention in group chats)
+        mention = f"@{self._bot_username}" if self._bot_username else None
         if message.text:
-            content_parts.append(message.text)
+            text = message.text.replace(mention, "").strip() if mention else message.text
+            content_parts.append(text)
         if message.caption:
-            content_parts.append(message.caption)
+            caption = message.caption.replace(mention, "").strip() if mention else message.caption
+            content_parts.append(caption)
 
         # Handle media files
         media_file = None
