@@ -365,7 +365,11 @@ def gateway(
     sync_workspace_templates(config.workspace_path)
     bus = MessageBus()
 
-    from companiocc.config.paths import get_claude_project_dir
+    from companiocc.config.paths import get_claude_project_dir, sync_user_mcp_servers
+
+    # Sync user-scope MCP servers from ~/.claude.json to project dir
+    if sync_user_mcp_servers():
+        console.print("[green]✓[/green] Synced user MCP servers to project")
 
     claude = ClaudeCLI(
         project_dir=get_claude_project_dir(),
@@ -485,7 +489,9 @@ def agent(
 
     bus = MessageBus()
 
-    from companiocc.config.paths import get_claude_project_dir
+    from companiocc.config.paths import get_claude_project_dir, sync_user_mcp_servers
+
+    sync_user_mcp_servers()
 
     claude = ClaudeCLI(
         project_dir=get_claude_project_dir(),
