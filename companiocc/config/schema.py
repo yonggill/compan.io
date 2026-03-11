@@ -36,7 +36,7 @@ class ChannelsConfig(Base):
 class AgentDefaults(Base):
     """Default agent configuration."""
 
-    workspace: str = "~/.companiocc/workspace"
+    workspace: str = "~/"
     memory_window: int = 200
 
 

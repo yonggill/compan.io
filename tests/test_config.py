@@ -32,10 +32,9 @@ class TestConfigDefaults:
         config = Config()
         assert config.model_config.get("env_prefix") == "COMPANIOCC_"
 
-    def test_workspace_path_uses_companio(self):
+    def test_workspace_path_default(self):
         config = Config()
-        assert ".companiocc" in config.agents.defaults.workspace
-        assert ".nanobot" not in config.agents.defaults.workspace
+        assert config.agents.defaults.workspace == "~/"
 
     def test_gateway_defaults(self):
         config = Config()

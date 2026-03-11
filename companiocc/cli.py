@@ -230,16 +230,20 @@ def onboard():
     else:
         console.print("[green]✓[/green] All optional dependencies found.\n")
 
-    # --- Step 2: Workspace ---
-    console.print("\n[bold cyan]Step 2:[/bold cyan] Workspace")
+    # --- Step 2: Claude CLI settings ---
+    console.print("\n[bold cyan]Step 2:[/bold cyan] Claude CLI Settings")
 
-    config.agents.defaults.workspace = typer.prompt(
-        "  Workspace path",
-        default=config.agents.defaults.workspace,
-    )
-    config.agents.defaults.memory_window = int(typer.prompt(
-        "  Memory window (messages)",
-        default=str(config.agents.defaults.memory_window),
+    config.claude.max_turns = int(typer.prompt(
+        "  Max turns per request",
+        default=str(config.claude.max_turns),
+    ))
+    config.claude.timeout = int(typer.prompt(
+        "  Timeout (seconds)",
+        default=str(config.claude.timeout),
+    ))
+    config.claude.max_concurrent = int(typer.prompt(
+        "  Max concurrent sessions",
+        default=str(config.claude.max_concurrent),
     ))
 
     # --- Step 3: Telegram ---

@@ -18,7 +18,7 @@ Claude CLI provides all built-in tools: Read, Write, Edit, Bash, Glob, Grep, and
 ## Setup & Configuration
 
 Configuration file: `~/.companiocc/config.json`
-Workspace directory: `~/.companiocc/workspace` (default, configurable)
+Workspace directory: `~/` (default, configurable)
 
 ### Initial Setup
 
@@ -35,7 +35,7 @@ companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.companiocc/workspace",
+      "workspace": "~/",
       "memoryWindow": 200
     }
   },
@@ -70,7 +70,7 @@ companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `agents.defaults.workspace` | Workspace path | `~/.companiocc/workspace` |
+| `agents.defaults.workspace` | Workspace path | `~/` |
 | `agents.defaults.memoryWindow` | Messages to keep in context | `200` |
 | `claude.maxTurns` | Max agentic turns per request | `50` |
 | `claude.timeout` | Request timeout (seconds) | `300` |
@@ -116,7 +116,7 @@ companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
 ## Workspace Structure
 
 ```
-~/.companiocc/workspace/
+~//
   MEMORY.md       # Persistent facts and user preferences
   HISTORY.md      # Searchable event log (append-only)
   HEARTBEAT.md    # Tasks run on every heartbeat tick
