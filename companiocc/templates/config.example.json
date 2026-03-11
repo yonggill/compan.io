@@ -23,10 +23,6 @@
   },
   "gateway": {
     "host": "0.0.0.0",
-    "port": 18790,
-    "heartbeat": {
-      "enabled": true,
-      "intervalS": 600
-    }
+    "port": 18790
   }
 }

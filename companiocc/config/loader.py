@@ -86,4 +86,6 @@ def _migrate_config(data: dict) -> dict:
         data["channels"].pop("sendToolHints", None)
     if "claude" in data:
         data["claude"].pop("allowedTools", None)
+    if "gateway" in data:
+        data["gateway"].pop("heartbeat", None)
     return data

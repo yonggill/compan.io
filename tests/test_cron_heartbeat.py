@@ -44,15 +44,3 @@ class TestCronTypes:
         assert job.created_at_ms == 0
         assert job.state.next_run_at_ms is None
         assert job.payload.kind == "agent_turn"
-
-
-class TestHeartbeatConfig:
-    def test_heartbeat_default_interval(self):
-        """Heartbeat interval should default to 600 seconds (10 minutes)."""
-        import inspect
-
-        from companiocc.heartbeat import HeartbeatService
-
-        sig = inspect.signature(HeartbeatService.__init__)
-        default = sig.parameters["interval_s"].default
-        assert default == 600, f"Expected 600s (10 min), got {default}s"

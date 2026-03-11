@@ -2,39 +2,59 @@
 
 Claude Code CLI 기반 개인 AI 어시스턴트.
 
-Claude Code를 서브프로세스(`claude -p`)로 호출하여, Telegram 등 채팅 채널과 연동하는 경량 게이트웨이입니다.
-도구 실행, 파일 접근, 웹 검색 등은 모두 Claude Code가 자체적으로 처리합니다.
+Telegram 등 채팅 채널에서 메시지를 받아 Claude Code(`claude -p`)를 서브프로세스로 호출하는 경량 게이트웨이입니다.
+파일 읽기/쓰기, 웹 검색, 코드 실행 등 모든 도구는 Claude Code가 자체적으로 처리합니다.
+companiocc는 메시지 라우팅, 세션 관리, 메모리, 크론 스케줄링만 담당합니다.
+
+> **macOS 전용** — Claude Code CLI가 현재 macOS만 지원하므로 companiocc도 macOS에서만 동작합니다.
 
 ---
 
 ## 주요 기능
 
-- **Claude Code CLI 위임** — 모든 작업을 `claude -p` 서브프로세스에 위임 (도구, 파일, 웹 등 Claude Code가 처리)
-- **세션 유지** — `--session-id` / `--resume`으로 대화 컨텍스트 유지, 토큰 비용 절감
-- **Telegram 연동** — 봇을 통한 채팅 인터페이스
-- **2계층 메모리** — MEMORY.md (장기) + HISTORY.md (이벤트 로그)
-- **세션 관리** — SQLite 기반 대화 영속화 + 비용 추적
-- **크론 스케줄러** — 예약 리마인더 및 반복 작업
-- **하트비트** — 주기적 자율 점검 (기본 10분)
-- **보안** — 환경변수 시크릿 필터링, Claude 내부 변수 격리
+| 기능 | 설명 |
+|------|------|
+| **Claude Code 위임** | 모든 LLM 작업을 `claude -p` 서브프로세스에 위임 |
+| **세션 유지** | `--session-id` / `--resume`으로 대화 컨텍스트 유지, 토큰 비용 절감 |
+| **Telegram 연동** | Long polling 봇을 통한 채팅 (사진, 문서, 음성 첨부 지원) |
+| **2계층 메모리** | MEMORY.md (장기 기억) + HISTORY.md (검색 가능한 이벤트 로그) |
+| **세션 관리** | SQLite 기반 대화 영속화 + 턴별 비용/토큰 추적 |
+| **크론 스케줄러** | 예약 리마인더, 반복 작업, 일회성 트리거 |
+| **보안** | 환경변수 시크릿 필터링 + 출력 시크릿 마스킹 |
 
 ---
 
 ## 요구사항
 
+- macOS
 - Python 3.11 이상
-- [Claude Code CLI](https://claude.ai/code) 설치 및 인증 완료
-
-### 선택 사항
-
-| 기능 | 필요 도구 |
-|------|----------|
-| MCP 서버 (Playwright, GitHub 등) | Node.js (`npx`) |
-| Google Workspace | `npm install -g @googleworkspace/cli` |
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) 설치 및 인증 완료
 
 ---
 
 ## 설치
+
+### 비개발자용 (간편 설치)
+
+터미널(Terminal.app)을 열고 아래 명령어를 순서대로 입력하세요.
+
+**1. Python 확인**
+
+```bash
+python3 --version
+```
+
+`3.11` 이상이면 다음 단계로. 없으면 [python.org](https://www.python.org/downloads/)에서 설치하세요.
+
+**2. Claude Code CLI 확인**
+
+```bash
+claude --version
+```
+
+버전이 출력되면 인증 완료 상태입니다. 없으면 [Claude Code 문서](https://docs.anthropic.com/en/docs/claude-code)를 참고하세요.
+
+**3. companiocc 설치**
 
 ```bash
 git clone https://github.com/yonggill/companio-cc.git
@@ -42,19 +62,69 @@ cd companio-cc
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-
-# 초기 설정
-companiocc onboard
-
-# 테스트
-companiocc agent -m "안녕하세요!"
 ```
 
-### Telegram 봇
+**4. 초기 설정**
 
-1. [@BotFather](https://t.me/BotFather)에서 봇 토큰 발급
-2. `companiocc onboard`에서 Telegram 설정
-3. `companiocc gateway` 실행
+```bash
+companiocc onboard
+```
+
+대화형 마법사가 설정 파일(`~/.companiocc/config.json`)과 워크스페이스를 생성합니다.
+Telegram 봇을 사용하려면 이 단계에서 봇 토큰을 입력하세요.
+
+**5. 동작 확인**
+
+```bash
+# 단일 메시지 테스트
+companiocc agent -m "안녕하세요!"
+
+# 대화형 모드
+companiocc agent
+
+# Telegram 봇 + 크론 실행
+companiocc gateway
+```
+
+### 개발자용
+
+```bash
+git clone https://github.com/yonggill/companio-cc.git
+cd companio-cc
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
+companiocc onboard
+
+# 테스트 & 린트
+pytest
+ruff check .
+mypy companiocc
+```
+
+---
+
+## Telegram 봇 설정
+
+1. Telegram에서 [@BotFather](https://t.me/BotFather)에게 `/newbot` 명령으로 봇 생성
+2. 발급받은 토큰을 `~/.companiocc/config.json`에 입력:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+      "allowFrom": ["your_telegram_username"]
+    }
+  }
+}
+```
+
+3. `companiocc gateway` 실행 후 봇에게 메시지 전송
+
+`allowFrom`이 비어있으면 모든 사용자가 차단됩니다. 허용할 Telegram 유저네임 또는 숫자 ID를 입력하세요.
 
 ---
 
@@ -82,47 +152,36 @@ companiocc agent -m "안녕하세요!"
       "enabled": false,
       "token": "",
       "allowFrom": [],
+      "proxy": null,
       "replyToMessage": false
     }
   },
   "gateway": {
-    "heartbeat": { "enabled": true, "intervalS": 600 }
+    "host": "0.0.0.0",
+    "port": 18790
   }
 }
 ```
 
 ### 설정 항목
 
-#### Claude CLI (`claude`)
+| 섹션 | 항목 | 설명 | 기본값 |
+|------|------|------|--------|
+| `claude` | `maxTurns` | 요청당 최대 agentic 턴 수 | `50` |
+| | `timeout` | 요청 타임아웃 (초) | `300` |
+| | `maxConcurrent` | 최대 동시 세션 수 | `5` |
+| | `model` | 모델 오버라이드 (`null` = CLI 기본값) | `null` |
+| `channels` | `sendProgress` | "생각 중..." 진행 알림 전송 | `true` |
+| | `telegram.enabled` | Telegram 봇 활성화 | `false` |
+| | `telegram.token` | 봇 토큰 (@BotFather 발급) | — |
+| | `telegram.allowFrom` | 허용된 사용자 목록 | `[]` |
+| | `telegram.proxy` | HTTP/SOCKS5 프록시 URL | — |
+| | `telegram.replyToMessage` | 원본 메시지 인용 답장 | `false` |
+| `gateway` | `host` | 바인드 호스트 | `0.0.0.0` |
+| | `port` | 게이트웨이 포트 | `18790` |
+| `agents` | `memoryWindow` | 통합 전 유지할 메시지 수 | `200` |
 
-| 항목 | 설명 | 기본값 |
-|------|------|--------|
-| `maxTurns` | Claude CLI 최대 agentic 턴 수 | `50` |
-| `timeout` | 요청 타임아웃 (초) | `300` |
-| `maxConcurrent` | 최대 동시 세션 수 | `5` |
-| `model` | 모델 오버라이드 (`null` = CLI 기본값) | `null` |
-
-#### 채널 (`channels`)
-
-| 항목 | 설명 | 기본값 |
-|------|------|--------|
-| `sendProgress` | "생각 중..." 진행 알림 전송 | `true` |
-| `telegram.enabled` | Telegram 활성화 | `false` |
-| `telegram.token` | 봇 토큰 | — |
-| `telegram.allowFrom` | 허용된 사용자 (username 또는 ID) | `[]` |
-| `telegram.proxy` | HTTP/SOCKS5 프록시 | — |
-| `telegram.replyToMessage` | 메시지 답장 형태 | `false` |
-
-#### 게이트웨이 (`gateway`)
-
-| 항목 | 설명 | 기본값 |
-|------|------|--------|
-| `heartbeat.enabled` | 하트비트 활성화 | `true` |
-| `heartbeat.intervalS` | 하트비트 주기 (초) | `600` |
-
-### 환경 변수
-
-`COMPANIOCC_` 접두사와 `__` 구분자로 설정 오버라이드:
+환경 변수로도 오버라이드 가능합니다 (`COMPANIOCC_` 접두사, `__` 구분자):
 
 ```bash
 export COMPANIOCC_CLAUDE__TIMEOUT=600
@@ -134,10 +193,10 @@ export COMPANIOCC_CHANNELS__TELEGRAM__TOKEN="123456:ABC..."
 ## CLI 명령어
 
 ```
-companiocc onboard          # 초기 설정
+companiocc onboard          # 초기 설정 마법사
 companiocc agent -m "..."   # 단일 메시지
 companiocc agent            # 대화형 모드
-companiocc gateway          # 게이트웨이 (Telegram + 크론 + 하트비트)
+companiocc gateway          # 게이트웨이 (Telegram + 크론)
 companiocc status           # 상태 확인
 companiocc channels status  # 채널 상태
 ```
@@ -161,33 +220,74 @@ MessageBus (inbound)
     ↓
 AgentLoop
     ├─ 세션 조회/생성 (SQLite)
-    ├─ CLAUDE.md 생성 (시스템 프롬프트 + 메모리)
-    ├─ claude -p 서브프로세스 호출
-    │   ├─ 첫 호출: --session-id UUID
-    │   └─ 이후: --resume SESSION_ID
-    ├─ 응답 파싱 (JSON)
-    └─ 세션 저장 + 비용 기록
+    ├─ CLAUDE.md 생성 (시스템 프롬프트 + 메모리 + 런타임 컨텍스트)
+    ├─ claude -p --output-format json 서브프로세스 호출
+    │   ├─ 첫 호출: --session-id <UUID>
+    │   └─ 이후: --resume <SESSION_ID>
+    ├─ JSON 응답 파싱 + 시크릿 필터링
+    └─ 세션 저장 + 턴별 비용 기록
     ↓
 MessageBus (outbound)
     ↓
 채널 (Telegram / CLI)
 ```
 
-### Claude CLI 격리
+### Claude CLI 호출 방식
 
-- **프로젝트 디렉토리**: `~/.companiocc/project/` — Claude CLI의 cwd, CLAUDE.md 위치
-- **`--add-dir ~/`**: 홈 디렉토리 전체 접근 허용
-- **`--dangerously-skip-permissions`**: 자율 에이전트로 동작
-- **환경변수 필터링**: API 키, 시크릿, Claude 내부 변수를 서브프로세스에서 제거
+companiocc는 Claude Code를 서브프로세스로 호출합니다:
+
+```bash
+# 새 세션
+claude -p --output-format json --max-turns 50 --add-dir ~/ \
+  --session-id <UUID> --dangerously-skip-permissions
+
+# 기존 세션 이어가기
+claude -p --output-format json --max-turns 50 --add-dir ~/ \
+  --resume <SESSION_ID> --dangerously-skip-permissions
+```
+
+- 사용자 메시지는 **stdin**으로 전달 (ARG_MAX 제한 회피)
+- 시스템 프롬프트는 프로젝트 디렉토리(`~/.companiocc/project/`)의 `CLAUDE.md` 파일로 주입
+- 환경변수에서 API 키, 시크릿, Claude 내부 변수를 제거한 뒤 서브프로세스 생성
 
 ### 2계층 메모리
 
 | 계층 | 파일 | 컨텍스트 포함 | 용도 |
-|------|------|--------------|------|
-| 장기 메모리 | `memory/MEMORY.md` | ✅ 항상 | 핵심 사실, 사용자 정보 |
+|------|------|:---:|------|
+| 장기 메모리 | `memory/MEMORY.md` | ✅ | 핵심 사실, 사용자 선호 |
 | 이벤트 로그 | `memory/HISTORY.md` | ❌ | grep 검색 가능한 대화 요약 |
 
-세션 메시지가 `memoryWindow`를 초과하면 자동 통합(consolidation) 실행.
+세션 메시지가 `memoryWindow`를 초과하면 자동 통합(consolidation)이 실행되어 오래된 대화를 MEMORY.md에 요약 저장하고 HISTORY.md에 이벤트를 기록합니다.
+
+### 크론 스케줄러
+
+에이전트가 대화 중 직접 크론 작업을 생성할 수 있습니다:
+
+- **반복** — `every_seconds: 3600` (매 1시간)
+- **크론식** — `cron_expr: "0 9 * * *"` (매일 오전 9시)
+- **일회성** — `at: "2024-12-25T09:00:00"` (실행 후 자동 삭제)
+
+작업 목록은 `~/.companiocc/cron/jobs.json`에 영속 저장됩니다.
+
+### 데이터 디렉토리
+
+```
+~/.companiocc/
+├── config.json              # 설정 파일
+├── .env                     # 환경 변수 (선택)
+├── project/                 # Claude CLI 프로젝트 디렉토리
+│   └── CLAUDE.md            # 시스템 프롬프트 (매 요청마다 재생성)
+├── workspace/               # 에이전트 워크스페이스
+│   ├── AGENTS.md            # 에이전트 지침
+│   ├── SOUL.md              # 성격 정의
+│   ├── USER.md              # 사용자 프로필
+│   ├── TOOLS.md             # 도구 가이드
+│   ├── memory/              # 메모리 파일
+│   ├── skills/              # 스킬 확장 (마크다운)
+│   └── companiocc.db        # SQLite 세션 DB
+└── cron/
+    └── jobs.json            # 크론 작업 목록
+```
 
 ### 프로젝트 구조
 
@@ -198,26 +298,14 @@ companio-cc/
 │   ├── channels/          # 채팅 채널 (Telegram)
 │   ├── config/            # 설정 스키마, 로더, 경로
 │   ├── tools/             # companiocc 전용 도구 (message, cron)
-│   ├── templates/         # 워크스페이스 템플릿 (SOUL.md, AGENTS.md 등)
-│   ├── bus.py             # 메시지 버스
-│   ├── cli.py             # CLI 명령어
+│   ├── templates/         # 워크스페이스 템플릿
+│   ├── bus.py             # 비동기 메시지 버스
+│   ├── cli.py             # CLI 명령어 (typer)
 │   ├── cron.py            # 크론 스케줄러
-│   ├── heartbeat.py       # 하트비트 서비스
 │   ├── session.py         # SQLite 세션 관리
 │   └── helpers.py         # 유틸리티
 ├── tests/
 └── pyproject.toml
-```
-
----
-
-## 개발
-
-```bash
-pip install -e ".[dev]"
-pytest
-ruff check .
-mypy companiocc
 ```
 
 ---

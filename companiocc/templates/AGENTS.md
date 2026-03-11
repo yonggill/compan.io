@@ -9,9 +9,8 @@ companiocc is a self-hosted assistant that wraps the Claude CLI (`claude -p`) an
 - **Telegram integration** as a chat interface
 - **Two-layer memory**: MEMORY.md (persistent facts) + HISTORY.md (searchable event log)
 - **Skill system**: Markdown-based capability extensions loaded from `workspace/skills/`
-- **Heartbeat**: Periodic autonomous task checking (default every 10 minutes)
 - **Cron scheduling**: Time-based task triggers with channel delivery
-- **Gateway**: HTTP server hosting Telegram polling, cron, and heartbeat
+- **Gateway**: HTTP server hosting Telegram polling and cron
 
 Claude CLI provides all built-in tools: Read, Write, Edit, Bash, Glob, Grep, and others.
 
@@ -37,7 +36,7 @@ Workspace directory: `~/.companiocc/workspace` (default, configurable)
 companiocc onboard          # Creates config.json and workspace
 companiocc agent -m "hello" # Test with a single message
 companiocc agent            # Interactive CLI mode
-companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
+companiocc gateway          # Start gateway (Telegram + cron)
 ```
 
 ### Config Structure
@@ -68,11 +67,7 @@ companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
   },
   "gateway": {
     "host": "0.0.0.0",
-    "port": 18790,
-    "heartbeat": {
-      "enabled": true,
-      "intervalS": 600
-    }
+    "port": 18790
   }
 }
 ```
@@ -93,8 +88,6 @@ companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
 | `channels.telegram.proxy` | HTTP/SOCKS5 proxy URL | `null` |
 | `channels.telegram.replyToMessage` | Quote original message in replies | `false` |
 | `gateway.port` | Gateway HTTP port | `18790` |
-| `gateway.heartbeat.enabled` | Enable periodic heartbeat | `true` |
-| `gateway.heartbeat.intervalS` | Heartbeat interval (seconds) | `600` |
 
 ### Telegram Setup
 
@@ -126,7 +119,6 @@ companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
 ~/.companiocc/workspace/
   MEMORY.md       # Persistent facts and user preferences
   HISTORY.md      # Searchable event log (append-only)
-  HEARTBEAT.md    # Tasks run on every heartbeat tick
   skills/         # Skill files (one .md per skill)
 ```
 
@@ -157,23 +149,13 @@ Use cron scheduling for time-based reminders. Get USER_ID and CHANNEL from the c
 
 **Do NOT write reminders only to MEMORY.md** — that will not trigger notifications.
 
-## Heartbeat Tasks
-
-`HEARTBEAT.md` is checked on every heartbeat tick (default every 10 minutes). Use file tools to manage periodic tasks:
-
-- **Add**: Edit `HEARTBEAT.md` to append a new task
-- **Remove**: Edit `HEARTBEAT.md` to delete a completed task
-- **Rewrite**: Write `HEARTBEAT.md` to replace all tasks
-
-When the user asks for a recurring/periodic background task, update `HEARTBEAT.md` rather than creating a one-time cron job.
-
 ## CLI Commands
 
 ```
 companiocc onboard          # Initial setup
 companiocc agent -m "..."   # Single message
 companiocc agent            # Interactive mode
-companiocc gateway          # Start gateway (Telegram + cron + heartbeat)
+companiocc gateway          # Start gateway (Telegram + cron)
 companiocc channels status  # Channel status
 companiocc status           # Overall status
 companiocc --version        # Version

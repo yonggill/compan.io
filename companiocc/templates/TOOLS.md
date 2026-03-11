@@ -8,7 +8,7 @@ Two additional tools are injected by companiocc:
 
 ### `message`
 - Sends a message to a specific chat channel (e.g., Telegram)
-- Use this to proactively notify the user, such as from cron tasks or heartbeat events
+- Use this to proactively notify the user, such as from cron tasks
 - Requires a channel name and chat ID
 
 ### `cron`
@@ -22,7 +22,6 @@ Two additional tools are injected by companiocc:
 The following files in the workspace directory are managed by companiocc:
 - `MEMORY.md` — persistent notes across sessions
 - `HISTORY.md` — conversation history log
-- `HEARTBEAT.md` — heartbeat task state
 - `skills/` — skill definitions loaded into the system prompt
 
 ## Security

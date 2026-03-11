@@ -338,7 +338,6 @@ def gateway(
     from companiocc.core.claude_cli import ClaudeCLI, verify_claude_cli
     from companiocc.core.loop import AgentLoop
     from companiocc.cron import CronJob, CronService
-    from companiocc.heartbeat import HeartbeatService
     from companiocc.session import SessionManager
 
     if verbose:
@@ -426,43 +425,6 @@ def gateway(
     # Create channel manager
     channels = ChannelManager(config, bus)
 
-    def _pick_heartbeat_target() -> tuple[str, str]:
-        """Pick a routable channel/chat target for heartbeat-triggered messages."""
-        # Fallback: no session listing available, use cli channel
-        return "cli", "direct"
-
-    # Create heartbeat service
-    async def on_heartbeat_execute(tasks: str) -> str:
-        """Phase 2: execute heartbeat tasks through the full agent loop."""
-        channel, chat_id = _pick_heartbeat_target()
-
-        return await agent.process_direct(
-            tasks,
-            session_key="heartbeat",
-            channel=channel,
-            chat_id=chat_id,
-        )
-
-    async def on_heartbeat_notify(response: str) -> None:
-        """Deliver a heartbeat response to the user's channel."""
-        from companiocc.bus import OutboundMessage
-
-        channel, chat_id = _pick_heartbeat_target()
-        if channel == "cli":
-            return  # No external channel available to deliver to
-        await bus.publish_outbound(
-            OutboundMessage(channel=channel, chat_id=chat_id, content=response)
-        )
-
-    hb_cfg = config.gateway.heartbeat
-    heartbeat = HeartbeatService(
-        workspace=config.workspace_path,
-        on_execute=on_heartbeat_execute,
-        on_notify=on_heartbeat_notify,
-        interval_s=hb_cfg.interval_s,
-        enabled=hb_cfg.enabled,
-    )
-
     if channels.enabled_channels:
         console.print(f"[green]✓[/green] Channels enabled: {', '.join(channels.enabled_channels)}")
     else:
@@ -472,12 +434,9 @@ def gateway(
     if cron_status["jobs"] > 0:
         console.print(f"[green]✓[/green] Cron: {cron_status['jobs']} scheduled jobs")
 
-    console.print(f"[green]✓[/green] Heartbeat: every {hb_cfg.interval_s}s")
-
     async def run():
         try:
             await cron.start()
-            await heartbeat.start()
             await asyncio.gather(
                 agent.run(),
                 channels.start_all(),
@@ -485,7 +444,6 @@ def gateway(
         except KeyboardInterrupt:
             console.print("\nShutting down...")
         finally:
-            heartbeat.stop()
             cron.stop()
             agent.stop()
             await channels.stop_all()

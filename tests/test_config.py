@@ -39,8 +39,6 @@ class TestConfigDefaults:
         config = Config()
         assert config.gateway.host == "0.0.0.0"
         assert config.gateway.port == 18790
-        assert config.gateway.heartbeat.enabled is True
-        assert config.gateway.heartbeat.interval_s == 600
 
     def test_channels_defaults(self):
         config = Config()
@@ -68,7 +66,7 @@ class TestConfigExampleConsistency:
         assert loaded.agents.defaults.memory_window == default.agents.defaults.memory_window
         assert loaded.claude.max_turns == default.claude.max_turns
         assert loaded.claude.timeout == default.claude.timeout
-        assert loaded.gateway.heartbeat.interval_s == default.gateway.heartbeat.interval_s
+        assert loaded.gateway.port == default.gateway.port
 
 
 class TestConfigLoader:

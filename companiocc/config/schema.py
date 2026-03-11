@@ -45,19 +45,11 @@ class AgentsConfig(Base):
     defaults: AgentDefaults = Field(default_factory=AgentDefaults)
 
 
-class HeartbeatConfig(Base):
-    """Heartbeat service configuration."""
-
-    enabled: bool = True
-    interval_s: int = 10 * 60  # 10 minutes
-
-
 class GatewayConfig(Base):
     """Gateway/server configuration."""
 
     host: str = "0.0.0.0"
     port: int = 18790
-    heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
 
 
 class ClaudeCLIConfig(Base):
