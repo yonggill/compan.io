@@ -98,6 +98,11 @@ class ClaudeResponse:
     num_turns: int = 0
     is_error: bool = False
     subtype: str = "success"
+    # Token usage breakdown
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
 
     @classmethod
     def from_json(cls, raw: str) -> ClaudeResponse:
@@ -116,6 +121,8 @@ class ClaudeResponse:
                 is_error=True,
                 subtype="error_parse",
             )
+        # Extract token usage from nested usage object
+        usage = data.get("usage", {})
         return cls(
             result=data.get("result", ""),
             session_id=data.get("session_id"),
@@ -124,6 +131,10 @@ class ClaudeResponse:
             num_turns=data.get("num_turns", 0),
             is_error=data.get("is_error", False),
             subtype=data.get("subtype", "success"),
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            cache_read_input_tokens=usage.get("cache_read_input_tokens", 0),
+            cache_creation_input_tokens=usage.get("cache_creation_input_tokens", 0),
         )
 
 

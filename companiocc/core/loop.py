@@ -190,13 +190,18 @@ class AgentLoop:
             turn_cost = response.total_cost_usd
         self._claude_session_costs[key] = response.total_cost_usd
         logger.info(
-            "Claude CLI response: session={} resume={} turn_cost=${:.4f} total_cost=${:.4f} duration={}ms turns={}",
+            "Claude CLI response: session={} resume={} turn_cost=${:.4f} total_cost=${:.4f} "
+            "duration={}ms turns={} tokens(in={} out={} cache_read={} cache_create={})",
             response.session_id or "n/a",
             is_resume,
             turn_cost,
             response.total_cost_usd,
             response.duration_ms,
             response.num_turns,
+            response.input_tokens,
+            response.output_tokens,
+            response.cache_read_input_tokens,
+            response.cache_creation_input_tokens,
         )
 
         # Store Claude CLI session ID from response for future --resume
@@ -210,12 +215,17 @@ class AgentLoop:
             logger.error("Claude CLI error: {}", result_text[:200])
             result_text = result_text or "Sorry, I encountered an error."
 
-        # Save turn with cost data
+        # Save turn with cost and token data
         self._save_turn(
             session, msg.content, result_text,
             turn_cost_usd=turn_cost,
             total_cost_usd=response.total_cost_usd,
             duration_ms=response.duration_ms,
+            num_turns=response.num_turns,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            cache_read_input_tokens=response.cache_read_input_tokens,
+            cache_creation_input_tokens=response.cache_creation_input_tokens,
         )
         await self._session_manager.save(session)
 
@@ -270,9 +280,12 @@ class AgentLoop:
 
     def _save_turn(
         self, session: Session, user_content: str, assistant_content: str,
-        *, turn_cost_usd: float = 0.0, total_cost_usd: float = 0.0, duration_ms: int = 0,
+        *, turn_cost_usd: float = 0.0, total_cost_usd: float = 0.0,
+        duration_ms: int = 0, num_turns: int = 0,
+        input_tokens: int = 0, output_tokens: int = 0,
+        cache_read_input_tokens: int = 0, cache_creation_input_tokens: int = 0,
     ) -> None:
-        """Save user + assistant messages to session with cost metadata."""
+        """Save user + assistant messages to session with cost and token metadata."""
         now = datetime.now().isoformat()
         session.messages.append({"role": "user", "content": user_content, "timestamp": now})
         if assistant_content:
@@ -281,6 +294,11 @@ class AgentLoop:
                 "turn_cost_usd": turn_cost_usd,
                 "total_cost_usd": total_cost_usd,
                 "duration_ms": duration_ms,
+                "num_turns": num_turns,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_input_tokens": cache_read_input_tokens,
+                "cache_creation_input_tokens": cache_creation_input_tokens,
             })
 
     async def _consolidate_memory(self, session: Session, archive_all: bool = False) -> bool:

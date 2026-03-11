@@ -43,6 +43,11 @@ class SessionManager:
         turn_cost_usd REAL,
         total_cost_usd REAL,
         duration_ms INTEGER,
+        num_turns INTEGER,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        cache_read_input_tokens INTEGER,
+        cache_creation_input_tokens INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_messages_session
@@ -56,6 +61,13 @@ class SessionManager:
         "ALTER TABLE messages ADD COLUMN duration_ms INTEGER",
         # Migration 2: Add total_cost_usd to sessions table
         "ALTER TABLE sessions ADD COLUMN total_cost_usd REAL DEFAULT 0.0",
+        # Migration 3: Add num_turns to messages table
+        "ALTER TABLE messages ADD COLUMN num_turns INTEGER",
+        # Migration 4: Add token usage columns to messages table
+        "ALTER TABLE messages ADD COLUMN input_tokens INTEGER",
+        "ALTER TABLE messages ADD COLUMN output_tokens INTEGER",
+        "ALTER TABLE messages ADD COLUMN cache_read_input_tokens INTEGER",
+        "ALTER TABLE messages ADD COLUMN cache_creation_input_tokens INTEGER",
     ]
 
     def __init__(self, sessions_dir: Path):
@@ -143,8 +155,9 @@ class SessionManager:
             await self._db.execute(
                 "INSERT INTO messages "
                 "(session_id, role, content, tool_calls, tool_call_id, name, "
-                " turn_cost_usd, total_cost_usd, duration_ms) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " turn_cost_usd, total_cost_usd, duration_ms, num_turns, "
+                " input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     session.session_id,
                     msg.get("role"),
@@ -155,6 +168,11 @@ class SessionManager:
                     msg.get("turn_cost_usd"),
                     msg.get("total_cost_usd"),
                     msg.get("duration_ms"),
+                    msg.get("num_turns"),
+                    msg.get("input_tokens"),
+                    msg.get("output_tokens"),
+                    msg.get("cache_read_input_tokens"),
+                    msg.get("cache_creation_input_tokens"),
                 ),
             )
 
