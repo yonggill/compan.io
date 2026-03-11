@@ -515,12 +515,14 @@ class TelegramChannel(BaseChannel):
         message = update.message
         user = update.effective_user
         self._remember_thread_context(message)
+        metadata = self._build_message_metadata(message, user)
         await self._handle_message(
             sender_id=self._sender_id(user),
             chat_id=str(message.chat_id),
             content=message.text,
-            metadata=self._build_message_metadata(message, user),
+            metadata=metadata,
             session_key=self._derive_topic_session_key(message),
+            skip_acl=metadata.get("is_group", False),
         )
 
     async def _on_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -635,6 +637,7 @@ class TelegramChannel(BaseChannel):
             media=media_paths,
             metadata=metadata,
             session_key=session_key,
+            skip_acl=metadata.get("is_group", False),
         )
 
     async def _flush_media_group(self, key: str) -> None:
@@ -651,6 +654,7 @@ class TelegramChannel(BaseChannel):
                 media=list(dict.fromkeys(buf["media"])),
                 metadata=buf["metadata"],
                 session_key=buf.get("session_key"),
+                skip_acl=buf["metadata"].get("is_group", False),
             )
         finally:
             self._media_group_tasks.pop(key, None)
