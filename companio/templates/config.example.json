@@ -2,25 +2,16 @@
   "agents": {
     "defaults": {
       "workspace": "~/.companio/workspace",
-      "model": "anthropic/claude-opus-4-5",
-      "provider": "auto",
-      "maxTokens": 8192,
-      "temperature": 1,
-      "maxToolIterations": 40,
-      "memoryWindow": 200,
-      "reasoningEffort": "medium"
+      "memoryWindow": 200
     }
   },
-  "providers": {
-    "anthropic": {
-      "apiKey": ""
-    },
-    "openai": {
-      "apiKey": ""
-    },
-    "gemini": {
-      "apiKey": ""
-    }
+  "claude": {
+    "maxTurns": 50,
+    "timeout": 300,
+    "maxConcurrent": 5,
+    "model": null,
+    "permissionMode": "default",
+    "allowedTools": []
   },
   "channels": {
     "sendProgress": true,
@@ -32,25 +23,6 @@
       "proxy": null,
       "replyToMessage": false
     }
-  },
-  "tools": {
-    "restrictToWorkspace": true,
-    "web": {
-      "proxy": null,
-      "search": {
-        "apiKey": "",
-        "maxResults": 5
-      }
-    },
-    "exec": {
-      "timeout": 60,
-      "pathAppend": ""
-    },
-    "obsidian": {
-      "enabled": false,
-      "vaultPath": ""
-    },
-    "mcpServers": {}
   },
   "gateway": {
     "host": "0.0.0.0",
