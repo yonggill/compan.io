@@ -1,8 +1,8 @@
 
 import pytest
 
-from companiocc.bus import MessageBus
-from companiocc.channels.base import BaseChannel
+from companio.bus import MessageBus
+from companio.channels.base import BaseChannel
 
 
 class MockChannel(BaseChannel):
@@ -73,9 +73,9 @@ class TestBaseChannel:
 
 class TestCLI:
     def test_cli_app_exists(self):
-        from companiocc.cli import app
+        from companio.cli import app
         assert app is not None
 
     def test_cli_app_name(self):
-        from companiocc.cli import app
-        assert app.info.name == "companiocc"
+        from companio.cli import app
+        assert app.info.name == "companio"

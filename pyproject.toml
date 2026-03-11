@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "companiocc"
+name = "companio"
 version = "0.1.0"
 description = "Lightweight personal AI assistant framework"
 requires-python = ">=3.11"
@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-companiocc = "companiocc.cli:app"
+companio = "companio.cli:app"
 
 [tool.ruff]
 line-length = 100

@@ -1,4 +1,4 @@
-from companiocc.cron import CronJob, CronSchedule
+from companio.cron import CronJob, CronSchedule
 
 
 class TestCronTypes:

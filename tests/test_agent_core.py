@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import pytest
 
-from companiocc.bus import InboundMessage, MessageBus, OutboundMessage
+from companio.bus import InboundMessage, MessageBus, OutboundMessage
 
 
 class TestMessageBus:

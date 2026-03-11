@@ -1,12 +1,12 @@
-# companiocc
+# companio
 
 Claude Code CLI 기반 개인 AI 어시스턴트.
 
 Telegram 등 채팅 채널에서 메시지를 받아 Claude Code(`claude -p`)를 서브프로세스로 호출하는 경량 게이트웨이입니다.
 파일 읽기/쓰기, 웹 검색, 코드 실행 등 모든 도구는 Claude Code가 자체적으로 처리합니다.
-companiocc는 메시지 라우팅, 세션 관리, 메모리, 크론 스케줄링만 담당합니다.
+companio는 메시지 라우팅, 세션 관리, 메모리, 크론 스케줄링만 담당합니다.
 
-> **macOS 전용** — Claude Code CLI가 현재 macOS만 지원하므로 companiocc도 macOS에서만 동작합니다.
+> **macOS 전용** — Claude Code CLI가 현재 macOS만 지원하므로 companio도 macOS에서만 동작합니다.
 
 ---
 
@@ -54,11 +54,11 @@ claude --version
 
 버전이 출력되면 인증 완료 상태입니다. 없으면 [Claude Code 문서](https://docs.anthropic.com/en/docs/claude-code)를 참고하세요.
 
-**3. companiocc 설치**
+**3. companio 설치**
 
 ```bash
-git clone https://github.com/yonggill/companio-cc.git
-cd companio-cc
+git clone https://github.com/yonggill/compan.io.git
+cd compan.io
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -67,40 +67,40 @@ pip install -e .
 **4. 초기 설정**
 
 ```bash
-companiocc onboard
+companio onboard
 ```
 
-대화형 마법사가 설정 파일(`~/.companiocc/config.json`)과 워크스페이스를 생성합니다.
+대화형 마법사가 설정 파일(`~/.companio/config.json`)과 워크스페이스를 생성합니다.
 Telegram 봇을 사용하려면 이 단계에서 봇 토큰을 입력하세요.
 
 **5. 동작 확인**
 
 ```bash
 # 단일 메시지 테스트
-companiocc agent -m "안녕하세요!"
+companio agent -m "안녕하세요!"
 
 # 대화형 모드
-companiocc agent
+companio agent
 
 # Telegram 봇 + 크론 실행
-companiocc gateway
+companio gateway
 ```
 
 ### 개발자용
 
 ```bash
-git clone https://github.com/yonggill/companio-cc.git
-cd companio-cc
+git clone https://github.com/yonggill/compan.io.git
+cd compan.io
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-companiocc onboard
+companio onboard
 
 # 테스트 & 린트
 pytest
 ruff check .
-mypy companiocc
+mypy companio
 ```
 
 ---
@@ -108,7 +108,7 @@ mypy companiocc
 ## Telegram 봇 설정
 
 1. Telegram에서 [@BotFather](https://t.me/BotFather)에게 `/newbot` 명령으로 봇 생성
-2. 발급받은 토큰을 `~/.companiocc/config.json`에 입력:
+2. 발급받은 토큰을 `~/.companio/config.json`에 입력:
 
 ```json
 {
@@ -122,7 +122,7 @@ mypy companiocc
 }
 ```
 
-3. `companiocc gateway` 실행 후 봇에게 메시지 전송
+3. `companio gateway` 실행 후 봇에게 메시지 전송
 
 `allowFrom`이 비어있으면 모든 사용자가 차단됩니다. 허용할 Telegram 유저네임 또는 숫자 ID를 입력하세요.
 
@@ -130,13 +130,13 @@ mypy companiocc
 
 ## 설정
 
-설정 파일: `~/.companiocc/config.json`
+설정 파일: `~/.companio/config.json`
 
 ```json
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.companiocc/workspace",
+      "workspace": "~/.companio/workspace",
       "memoryWindow": 200
     }
   },
@@ -181,11 +181,11 @@ mypy companiocc
 | | `port` | 게이트웨이 포트 | `18790` |
 | `agents` | `memoryWindow` | 통합 전 유지할 메시지 수 | `200` |
 
-환경 변수로도 오버라이드 가능합니다 (`COMPANIOCC_` 접두사, `__` 구분자):
+환경 변수로도 오버라이드 가능합니다 (`COMPANIO_` 접두사, `__` 구분자):
 
 ```bash
-export COMPANIOCC_CLAUDE__TIMEOUT=600
-export COMPANIOCC_CHANNELS__TELEGRAM__TOKEN="123456:ABC..."
+export COMPANIO_CLAUDE__TIMEOUT=600
+export COMPANIO_CHANNELS__TELEGRAM__TOKEN="123456:ABC..."
 ```
 
 ---
@@ -193,12 +193,12 @@ export COMPANIOCC_CHANNELS__TELEGRAM__TOKEN="123456:ABC..."
 ## CLI 명령어
 
 ```
-companiocc onboard          # 초기 설정 마법사
-companiocc agent -m "..."   # 단일 메시지
-companiocc agent            # 대화형 모드
-companiocc gateway          # 게이트웨이 (Telegram + 크론)
-companiocc status           # 상태 확인
-companiocc channels status  # 채널 상태
+companio onboard          # 초기 설정 마법사
+companio agent -m "..."   # 단일 메시지
+companio agent            # 대화형 모드
+companio gateway          # 게이트웨이 (Telegram + 크론)
+companio status           # 상태 확인
+companio channels status  # 채널 상태
 ```
 
 ### 채팅 명령어
@@ -234,7 +234,7 @@ MessageBus (outbound)
 
 ### Claude CLI 호출 방식
 
-companiocc는 Claude Code를 서브프로세스로 호출합니다:
+companio는 Claude Code를 서브프로세스로 호출합니다:
 
 ```bash
 # 새 세션
@@ -247,7 +247,7 @@ claude -p --output-format json --max-turns 50 --add-dir ~/ \
 ```
 
 - 사용자 메시지는 **stdin**으로 전달 (ARG_MAX 제한 회피)
-- 시스템 프롬프트는 프로젝트 디렉토리(`~/.companiocc/project/`)의 `CLAUDE.md` 파일로 주입
+- 시스템 프롬프트는 프로젝트 디렉토리(`~/.companio/project/`)의 `CLAUDE.md` 파일로 주입
 - 환경변수에서 API 키, 시크릿, Claude 내부 변수를 제거한 뒤 서브프로세스 생성
 
 ### 2계층 메모리
@@ -267,12 +267,12 @@ claude -p --output-format json --max-turns 50 --add-dir ~/ \
 - **크론식** — `cron_expr: "0 9 * * *"` (매일 오전 9시)
 - **일회성** — `at: "2024-12-25T09:00:00"` (실행 후 자동 삭제)
 
-작업 목록은 `~/.companiocc/cron/jobs.json`에 영속 저장됩니다.
+작업 목록은 `~/.companio/cron/jobs.json`에 영속 저장됩니다.
 
 ### 데이터 디렉토리
 
 ```
-~/.companiocc/
+~/.companio/
 ├── config.json              # 설정 파일
 ├── .env                     # 환경 변수 (선택)
 ├── project/                 # Claude CLI 프로젝트 디렉토리
@@ -284,7 +284,7 @@ claude -p --output-format json --max-turns 50 --add-dir ~/ \
 │   ├── TOOLS.md             # 도구 가이드
 │   ├── memory/              # 메모리 파일
 │   ├── skills/              # 스킬 확장 (마크다운)
-│   └── companiocc.db        # SQLite 세션 DB
+│   └── companio.db        # SQLite 세션 DB
 └── cron/
     └── jobs.json            # 크론 작업 목록
 ```
@@ -292,12 +292,12 @@ claude -p --output-format json --max-turns 50 --add-dir ~/ \
 ### 프로젝트 구조
 
 ```
-companio-cc/
-├── companiocc/
+compan.io/
+├── companio/
 │   ├── core/              # AgentLoop, ClaudeCLI, ContextBuilder, MemoryStore
 │   ├── channels/          # 채팅 채널 (Telegram)
 │   ├── config/            # 설정 스키마, 로더, 경로
-│   ├── tools/             # companiocc 전용 도구 (message, cron)
+│   ├── tools/             # companio 전용 도구 (message, cron)
 │   ├── templates/         # 워크스페이스 템플릿
 │   ├── bus.py             # 비동기 메시지 버스
 │   ├── cli.py             # CLI 명령어 (typer)
