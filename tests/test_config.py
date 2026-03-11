@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from companio.config.schema import Config, TelegramConfig, ProviderConfig
+from companio.config.schema import Config, TelegramConfig
 
 
 class TestConfigDefaults:
@@ -13,14 +13,13 @@ class TestConfigDefaults:
 
     def test_default_instantiation(self):
         config = Config()
-        assert config.agents.defaults.provider == "auto"
-        assert config.agents.defaults.model == "anthropic/claude-opus-4-5"
-        assert config.agents.defaults.max_tokens == 8192
-        assert config.agents.defaults.temperature == 1.0
-        assert config.agents.defaults.max_tool_iterations == 40
         assert config.agents.defaults.memory_window == 200
-        assert config.agents.defaults.reasoning_effort == "medium"
-        assert config.tools.restrict_to_workspace is True
+        assert config.claude.max_turns == 50
+        assert config.claude.timeout == 300
+        assert config.claude.max_concurrent == 5
+        assert config.claude.model is None
+        assert config.claude.permission_mode == "default"
+        assert config.claude.allowed_tools == []
 
     def test_telegram_config_defaults(self):
         tc = TelegramConfig()
@@ -29,12 +28,6 @@ class TestConfigDefaults:
         assert tc.allow_from == []
         assert tc.proxy is None
         assert tc.reply_to_message is False
-
-    def test_provider_config_defaults(self):
-        pc = ProviderConfig()
-        assert pc.api_key == ""
-        assert pc.api_base is None
-        assert pc.extra_headers is None
 
     def test_env_prefix(self):
         config = Config()
@@ -70,15 +63,15 @@ class TestConfigExampleConsistency:
     def test_example_validates_against_schema(self, example_config):
         """config.example.json must be loadable by the schema without errors."""
         config = Config.model_validate(example_config)
-        assert config.agents.defaults.provider == "auto"
+        assert config.agents.defaults.memory_window == 200
 
     def test_example_matches_defaults(self, example_config):
         """Key values in config.example.json should equal schema defaults."""
         default = Config()
         loaded = Config.model_validate(example_config)
-        assert loaded.agents.defaults.model == default.agents.defaults.model
-        assert loaded.agents.defaults.max_tokens == default.agents.defaults.max_tokens
-        assert loaded.tools.restrict_to_workspace == default.tools.restrict_to_workspace
+        assert loaded.agents.defaults.memory_window == default.agents.defaults.memory_window
+        assert loaded.claude.max_turns == default.claude.max_turns
+        assert loaded.claude.timeout == default.claude.timeout
         assert loaded.gateway.heartbeat.interval_s == default.gateway.heartbeat.interval_s
 
 
@@ -95,4 +88,4 @@ class TestConfigLoader:
         from companio.config.loader import load_config
 
         config = load_config(tmp_path / "does_not_exist.json")
-        assert config.agents.defaults.provider == "auto"
+        assert config.agents.defaults.memory_window == 200
