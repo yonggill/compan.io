@@ -309,8 +309,18 @@ class AgentLoop:
     async def process_direct(
         self, content: str, session_key: str = "cli:direct",
         channel: str = "cli", chat_id: str = "direct",
+        ephemeral: bool = False,
     ) -> str:
-        """Process a message directly (for CLI or cron usage)."""
+        """Process a message directly (for CLI or cron usage).
+
+        Args:
+            ephemeral: If True, use a fresh session with no history or resume.
+        """
         msg = InboundMessage(channel=channel, sender_id="user", chat_id=chat_id, content=content)
+        if ephemeral:
+            # Force a fresh Claude CLI session with no history
+            self._claude_session_ids.pop(msg.session_key, None)
+            self._claude_session_costs.pop(msg.session_key, None)
+            await self._session_manager.clear(msg.session_key)
         response = await self._process_message(msg)
         return response.content if response else ""
