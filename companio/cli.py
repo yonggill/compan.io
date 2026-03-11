@@ -381,33 +381,20 @@ def gateway(
     # Set cron callback (needs agent)
     async def on_cron_job(job: CronJob) -> str | None:
         """Execute a cron job through the agent."""
-        from companio.tools.cron_tool import CronTool
-        from companio.tools.message import MessageTool
-
         reminder_note = (
             "[Scheduled Task] Timer finished.\n\n"
             f"Task '{job.name}' has been triggered.\n"
             f"Scheduled instruction: {job.payload.message}"
         )
 
-        # Prevent the agent from scheduling new cron jobs during execution
-        cron_tool = agent.tools.get("cron")
-        cron_token = None
-        if isinstance(cron_tool, CronTool):
-            cron_token = cron_tool.set_cron_context(True)
-        try:
-            response = await agent.process_direct(
-                reminder_note,
-                session_key=f"cron:{job.id}",
-                channel=job.payload.channel or "cli",
-                chat_id=job.payload.to or "direct",
-            )
-        finally:
-            if isinstance(cron_tool, CronTool) and cron_token is not None:
-                cron_tool.reset_cron_context(cron_token)
+        response = await agent.process_direct(
+            reminder_note,
+            session_key=f"cron:{job.id}",
+            channel=job.payload.channel or "cli",
+            chat_id=job.payload.to or "direct",
+        )
 
-        message_tool = agent.tools.get("message")
-        if isinstance(message_tool, MessageTool) and message_tool._sent_in_turn:
+        if agent.message_sender._sent_in_turn:
             return response
 
         if job.payload.deliver and job.payload.to and response:
@@ -435,15 +422,11 @@ def gateway(
         """Phase 2: execute heartbeat tasks through the full agent loop."""
         channel, chat_id = _pick_heartbeat_target()
 
-        async def _silent(*_args, **_kwargs):
-            pass
-
         return await agent.process_direct(
             tasks,
             session_key="heartbeat",
             channel=channel,
             chat_id=chat_id,
-            on_progress=_silent,
         )
 
     async def on_heartbeat_notify(response: str) -> None:
@@ -565,15 +548,12 @@ def agent(
         # Animated spinner is safe to use with prompt_toolkit input handling
         return console.status("[dim]companio is thinking...[/dim]", spinner="dots")
 
-    async def _cli_progress(content: str, *, tool_hint: bool = False) -> None:
-        console.print(f"  [dim]↳ {content}[/dim]")
-
     if message:
         # Single message mode -- direct call, no bus needed
         async def run_once():
             with _thinking_ctx():
                 response = await agent_loop.process_direct(
-                    message, session_id, on_progress=_cli_progress
+                    message, session_id
                 )
             _print_agent_response(response, render_markdown=markdown)
 
