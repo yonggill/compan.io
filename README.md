@@ -126,6 +126,16 @@ mypy companio
 
 `allowFrom`이 비어있으면 모든 사용자가 차단됩니다. 허용할 Telegram 유저네임 또는 숫자 ID를 입력하세요.
 
+### 그룹 채팅에서 사용하기
+
+1. **BotFather에서 Group Privacy 끄기**: BotFather에게 `/mybots` → 봇 선택 → Bot Settings → Group Privacy → **Turn off**
+2. **그룹에 봇 초대**: Telegram 그룹 설정에서 봇을 멤버로 추가
+3. **`@봇이름`으로 멘션하거나 봇 메시지에 reply**하면 응답합니다
+
+> **참고**: Group Privacy 설정을 변경한 후에는 봇을 그룹에서 **제거했다가 다시 초대**해야 적용됩니다.
+
+그룹 채팅에서는 `allowFrom` 제한이 적용되지 않으며, 멘션 또는 reply로 봇을 호출한 모든 사용자에게 응답합니다. DM에서는 기존대로 `allowFrom` 허용 목록이 적용됩니다.
+
 ---
 
 ## 설정
